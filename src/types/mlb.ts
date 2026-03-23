@@ -52,3 +52,30 @@ export interface ScheduleResponse {
   totalGamesInProgress: number
   dates: ScheduleDate[]
 }
+
+export interface StandingsRecord {
+  wins: number
+  losses: number
+  pct: string
+}
+
+export interface StandingsTeam {
+  team: Team
+  leagueRecord: StandingsRecord
+  divisionRank: string
+  gamesBack: string
+  wins: number
+  losses: number
+}
+
+export interface DivisionStandings {
+  division: {
+    id: number
+    name: string
+  }
+  teamRecords: StandingsTeam[]
+}
+
+export interface StandingsResponse {
+  records: DivisionStandings[]
+}

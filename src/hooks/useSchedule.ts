@@ -9,7 +9,7 @@ interface UseScheduleReturn {
   totalGamesInProgress: number
 }
 
-export const useSchedule = (): UseScheduleReturn => {
+export const useSchedule = (date?: string): UseScheduleReturn => {
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -19,7 +19,10 @@ export const useSchedule = (): UseScheduleReturn => {
     const fetchGames = async () => {
       try {
         setLoading(true)
-        const data = await mlbApi.getTodaySchedule()
+        setError(null)
+        const data = date
+          ? await mlbApi.getSchedule(date)
+          : await mlbApi.getTodaySchedule()
         const allGames = data.dates[0]?.games ?? []
         setGames(allGames)
         setTotalGamesInProgress(data.totalGamesInProgress)
@@ -32,7 +35,7 @@ export const useSchedule = (): UseScheduleReturn => {
     }
 
     fetchGames()
-  }, [])
+  }, [date])
 
   return { games, loading, error, totalGamesInProgress }
 }
