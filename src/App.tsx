@@ -1,20 +1,25 @@
 import { useState } from 'react'
-import { GameCard } from './components/GameCard'
+import { Routes, Route } from 'react-router-dom'
+import { ScoreboardTicker, type LeagueFilter } from './components/ScoreboardTicker'
+import { ScoreRow } from './components/ScoreRow'
 import { StandingsTable } from './components/StandingsTable'
+import { GamePage } from './pages/GamePage'
 import { useSchedule } from './hooks/useSchedule'
+import { getTeamLeague } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { Game } from './types/mlb'
 
 const todayStr = (() => {
   const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-')
 })()
 
-const formatDate = (dateStr: string) => {
+const formatFullDate = (dateStr: string) => {
   const [year, month, day] = dateStr.split('-').map(Number)
   return new Date(year, month - 1, day).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -24,59 +29,67 @@ const formatDate = (dateStr: string) => {
   })
 }
 
-const shiftDate = (dateStr: string, days: number) => {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  const d = new Date(year, month - 1, day + days)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${dd}`
+const applyLeagueFilter = (games: Game[], filter: LeagueFilter) => {
+  if (filter === 'All') return games
+  return games.filter(
+    (g) =>
+      getTeamLeague(g.teams.away.team.id) === filter &&
+      getTeamLeague(g.teams.home.team.id) === filter
+  )
 }
 
-function App() {
+const GroupDivider = ({ label, count }: { label: string; count: number }) => (
+  <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/80 border-b border-zinc-800">
+    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{label}</span>
+    <span className="text-[10px] text-zinc-700 font-medium">{count}</span>
+    <div className="flex-1 h-px bg-zinc-800" />
+  </div>
+)
+
+function MainDashboard() {
   const [activeTab, setActiveTab] = useState<'scores' | 'standings'>('scores')
   const [selectedDate, setSelectedDate] = useState(todayStr)
+  const [leagueFilter, setLeagueFilter] = useState<LeagueFilter>('All')
   const { games, loading, error, totalGamesInProgress } = useSchedule(selectedDate)
 
+  const filteredGames = applyLeagueFilter(games, leagueFilter)
+  const liveGames = filteredGames.filter((g) => g.status.abstractGameState === 'Live')
+  const finalGames = filteredGames.filter((g) => g.status.abstractGameState === 'Final')
+  const scheduledGames = filteredGames.filter((g) => g.status.abstractGameState === 'Preview')
+
+  const handleGameClick = (gamePk: number) => {
+    setActiveTab('scores')
+    setTimeout(() => {
+      document.getElementById(`game-${gamePk}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    }, 80)
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border px-6 py-4">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-blue-400">⚾ MLB Dashboard</h1>
-            {activeTab === 'scores' ? (
-              <div className="flex items-center gap-2 mt-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSelectedDate((d) => shiftDate(d, -1))}
-                >
-                  ‹
-                </Button>
-                <p className="text-sm text-muted-foreground">{formatDate(selectedDate)}</p>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSelectedDate((d) => shiftDate(d, 1))}
-                >
-                  ›
-                </Button>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground mt-1">2026 Season Standings</p>
-            )}
-          </div>
+    <div className="min-h-screen bg-zinc-950 text-foreground">
+      <ScoreboardTicker
+        games={games}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        leagueFilter={leagueFilter}
+        onLeagueChange={setLeagueFilter}
+        onGameClick={handleGameClick}
+      />
+
+      <header className="border-b border-zinc-800 px-6 py-4 bg-zinc-900">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-blue-400 tracking-tight">⚾ MLB Dashboard</h1>
           {totalGamesInProgress > 0 && (
-            <Badge className="bg-green-500 text-white animate-pulse">
-              {totalGamesInProgress} Games Live
+            <Badge className="bg-green-500 text-white animate-pulse shadow-md shadow-green-500/30">
+              {totalGamesInProgress} Live
             </Badge>
           )}
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-6">
+      <main className="max-w-5xl mx-auto px-6 py-6">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'scores' | 'standings')}>
           <TabsList className="mb-6">
             <TabsTrigger value="scores">Scores</TabsTrigger>
@@ -85,28 +98,52 @@ function App() {
 
           <TabsContent value="scores">
             {loading && (
-              <div className="text-center text-muted-foreground py-20">Loading games...</div>
+              <div className="text-center text-zinc-500 py-20">Loading games...</div>
             )}
             {error && (
               <div className="text-center text-red-400 py-20">{error}</div>
             )}
             {!loading && !error && (
               <>
-                <h2 className="text-lg font-semibold mb-4">
-                  Games
-                  <span className="text-muted-foreground font-normal ml-2 text-sm">
-                    {games.length} games
+                <div className="flex items-baseline justify-between mb-4">
+                  <h2 className="text-base font-semibold text-zinc-300">
+                    {formatFullDate(selectedDate)}
+                  </h2>
+                  <span className="text-sm text-zinc-500">
+                    {filteredGames.length} {filteredGames.length === 1 ? 'game' : 'games'}
                   </span>
-                </h2>
-                {games.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-20">
+                </div>
+
+                {filteredGames.length === 0 ? (
+                  <div className="text-center text-zinc-500 py-20">
                     No games scheduled for this date.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {games.map((game) => (
-                      <GameCard key={game.gamePk} game={game} />
-                    ))}
+                  <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                    {liveGames.length > 0 && (
+                      <>
+                        <GroupDivider label="Live" count={liveGames.length} />
+                        {liveGames.map((g) => (
+                          <ScoreRow key={g.gamePk} game={g} />
+                        ))}
+                      </>
+                    )}
+                    {finalGames.length > 0 && (
+                      <>
+                        <GroupDivider label="Final" count={finalGames.length} />
+                        {finalGames.map((g) => (
+                          <ScoreRow key={g.gamePk} game={g} />
+                        ))}
+                      </>
+                    )}
+                    {scheduledGames.length > 0 && (
+                      <>
+                        <GroupDivider label="Upcoming" count={scheduledGames.length} />
+                        {scheduledGames.map((g) => (
+                          <ScoreRow key={g.gamePk} game={g} />
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
               </>
@@ -119,6 +156,15 @@ function App() {
         </Tabs>
       </main>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainDashboard />} />
+      <Route path="/game/:gamePk" element={<GamePage />} />
+    </Routes>
   )
 }
 

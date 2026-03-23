@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useStandings } from '../hooks/useStandings'
+import { getTeamLogoUrl } from '@/lib/utils'
 import type { DivisionStandings } from '../types/mlb'
 
 // Division IDs in display order per league
@@ -14,7 +15,7 @@ const DivisionTable = ({ division }: { division: DivisionStandings }) => (
     <h3 className="text-sm font-semibold text-blue-400 mb-2">{division.division.name}</h3>
     <table className="w-full text-sm">
       <thead>
-        <tr className="text-muted-foreground border-b border-border">
+        <tr className="text-zinc-500 border-b border-zinc-800">
           <th className="text-left pb-1 w-8">#</th>
           <th className="text-left pb-1">Team</th>
           <th className="text-right pb-1 w-10">W</th>
@@ -27,10 +28,19 @@ const DivisionTable = ({ division }: { division: DivisionStandings }) => (
         {division.teamRecords.map((record, index) => (
           <tr
             key={record.team.id}
-            className={`border-b border-border/40 ${index === 0 ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`border-b border-zinc-800 ${index === 0 ? 'text-zinc-100' : 'text-zinc-500'}`}
           >
             <td className="py-1.5">{index + 1}</td>
-            <td className="py-1.5 font-medium">{record.team.name}</td>
+            <td className="py-1.5 font-medium">
+                <div className="flex items-center gap-2">
+                  <img
+                    src={getTeamLogoUrl(record.team.id)}
+                    alt=""
+                    className="w-5 h-5 flex-shrink-0"
+                  />
+                  {record.team.name}
+                </div>
+              </td>
             <td className="py-1.5 text-right">{record.leagueRecord.wins}</td>
             <td className="py-1.5 text-right">{record.leagueRecord.losses}</td>
             <td className="py-1.5 text-right">{record.leagueRecord.pct}</td>

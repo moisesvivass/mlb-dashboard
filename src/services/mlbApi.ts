@@ -1,11 +1,17 @@
-import type { ScheduleResponse, StandingsResponse } from '../types/mlb'
+import type {
+  ScheduleResponse,
+  StandingsResponse,
+  BoxscoreResponse,
+  LinescoreResponse,
+  PlayByPlayResponse,
+} from '../types/mlb'
 
 const BASE_URL = 'https://statsapi.mlb.com/api/v1'
 
 export const mlbApi = {
   getSchedule: async (date: string): Promise<ScheduleResponse> => {
     const response = await fetch(
-      `${BASE_URL}/schedule?sportId=1&date=${date}`
+      `${BASE_URL}/schedule?sportId=1&date=${date}&hydrate=decisions,probablePitchers`
     )
     if (!response.ok) {
       throw new Error('Failed to fetch schedule')
@@ -24,6 +30,38 @@ export const mlbApi = {
     )
     if (!response.ok) {
       throw new Error('Failed to fetch standings')
+    }
+    return response.json()
+  },
+
+  getBoxscore: async (gamePk: number): Promise<BoxscoreResponse> => {
+    const response = await fetch(`${BASE_URL}/game/${gamePk}/boxscore`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch boxscore')
+    }
+    return response.json()
+  },
+
+  getLinescore: async (gamePk: number): Promise<LinescoreResponse> => {
+    const response = await fetch(`${BASE_URL}/game/${gamePk}/linescore`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch linescore')
+    }
+    return response.json()
+  },
+
+  getGameByPk: async (gamePk: number): Promise<ScheduleResponse> => {
+    const response = await fetch(`${BASE_URL}/schedule?sportId=1&gamePk=${gamePk}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch game')
+    }
+    return response.json()
+  },
+
+  getPlayByPlay: async (gamePk: number): Promise<PlayByPlayResponse> => {
+    const response = await fetch(`${BASE_URL}/game/${gamePk}/playByPlay`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch play by play')
     }
     return response.json()
   },
