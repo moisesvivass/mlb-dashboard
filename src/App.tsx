@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { ScoreboardTicker, type LeagueFilter } from './components/ScoreboardTicker'
 import { ScoreRow } from './components/ScoreRow'
 import { StandingsTable } from './components/StandingsTable'
 import { GamePage } from './pages/GamePage'
+import { TeamPage } from './pages/TeamPage'
+import { PlayerPage } from './pages/PlayerPage'
 import { useSchedule } from './hooks/useSchedule'
 import { getTeamLeague } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -51,20 +53,15 @@ function MainDashboard() {
   const [selectedDate, setSelectedDate] = useState(todayStr)
   const [leagueFilter, setLeagueFilter] = useState<LeagueFilter>('All')
   const { games, loading, error, totalGamesInProgress } = useSchedule(selectedDate)
+  const navigate = useNavigate()
 
-  const filteredGames = applyLeagueFilter(games, leagueFilter)
-  const liveGames = filteredGames.filter((g) => g.status.abstractGameState === 'Live')
-  const finalGames = filteredGames.filter((g) => g.status.abstractGameState === 'Final')
-  const scheduledGames = filteredGames.filter((g) => g.status.abstractGameState === 'Preview')
+  const filteredGames = useMemo(() => applyLeagueFilter(games, leagueFilter), [games, leagueFilter])
+  const liveGames = useMemo(() => filteredGames.filter((g) => g.status.abstractGameState === 'Live'), [filteredGames])
+  const finalGames = useMemo(() => filteredGames.filter((g) => g.status.abstractGameState === 'Final'), [filteredGames])
+  const scheduledGames = useMemo(() => filteredGames.filter((g) => g.status.abstractGameState === 'Preview'), [filteredGames])
 
   const handleGameClick = (gamePk: number) => {
-    setActiveTab('scores')
-    setTimeout(() => {
-      document.getElementById(`game-${gamePk}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      })
-    }, 80)
+    navigate(`/game/${gamePk}`)
   }
 
   return (
@@ -164,6 +161,8 @@ function App() {
     <Routes>
       <Route path="/" element={<MainDashboard />} />
       <Route path="/game/:gamePk" element={<GamePage />} />
+      <Route path="/team/:teamId" element={<TeamPage />} />
+      <Route path="/player/:playerId" element={<PlayerPage />} />
     </Routes>
   )
 }

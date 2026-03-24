@@ -30,6 +30,13 @@ export interface Venue {
   name: string
 }
 
+export interface GameLinescore {
+  currentInning?: number
+  currentInningOrdinal?: string
+  inningState?: string
+  inningHalf?: string
+}
+
 export interface Game {
   gamePk: number
   gameDate: string
@@ -40,6 +47,7 @@ export interface Game {
   }
   venue: Venue
   seriesDescription: string
+  linescore?: GameLinescore
   decisions?: {
     winner?: DecisionPitcher
     loser?: DecisionPitcher
@@ -210,6 +218,25 @@ export interface LinescoreTotals {
   errors: number
 }
 
+export interface LiveRunner {
+  id: number
+  fullName: string
+}
+
+export interface LinescoreOffense {
+  batter?: LiveRunner
+  onDeck?: LiveRunner
+  inHole?: LiveRunner
+  onFirst?: LiveRunner
+  onSecond?: LiveRunner
+  onThird?: LiveRunner
+}
+
+export interface LinescoreDefense {
+  pitcher?: LiveRunner
+  catcher?: LiveRunner
+}
+
 export interface LinescoreResponse {
   innings: LinescoreInning[]
   teams: {
@@ -221,6 +248,15 @@ export interface LinescoreResponse {
     loser?: DecisionPitcher
     save?: DecisionPitcher
   }
+  currentInning?: number
+  currentInningOrdinal?: string
+  inningState?: string
+  inningHalf?: string
+  outs?: number
+  balls?: number
+  strikes?: number
+  offense?: LinescoreOffense
+  defense?: LinescoreDefense
 }
 
 // ── Play by Play ──────────────────────────────────────────────────────────────
@@ -250,4 +286,95 @@ export interface Play {
 
 export interface PlayByPlayResponse {
   allPlays: Play[]
+}
+
+// ── Team Stats ─────────────────────────────────────────────────────────────────
+
+export interface PlayerStatValues {
+  gamesPlayed?: number
+  atBats?: number
+  runs?: number
+  hits?: number
+  doubles?: number
+  triples?: number
+  homeRuns?: number
+  rbi?: number
+  baseOnBalls?: number
+  strikeOuts?: number
+  avg?: string
+  obp?: string
+  slg?: string
+  gamesStarted?: number
+  wins?: number
+  losses?: number
+  saves?: number
+  inningsPitched?: string
+  earnedRuns?: number
+  era?: string
+  whip?: string
+}
+
+export interface PlayerStatSplit {
+  season?: string
+  stat: PlayerStatValues
+  player: { id: number; fullName: string }
+  team?: { id: number; name: string }
+}
+
+export interface TeamStatsResponse {
+  stats: Array<{
+    type?: { displayName: string }
+    group?: { displayName: string }
+    splits: PlayerStatSplit[]
+  }>
+}
+
+// ── Team Roster ────────────────────────────────────────────────────────────────
+
+export interface RosterPerson {
+  id: number
+  fullName: string
+  currentAge?: number
+  height?: string
+  weight?: number
+  batSide?: { code: string; description: string }
+  pitchHand?: { code: string; description: string }
+}
+
+export interface RosterPlayer {
+  person: RosterPerson
+  jerseyNumber?: string
+  position: {
+    code: string
+    name: string
+    type: string
+    abbreviation: string
+  }
+  status?: {
+    code: string
+    description: string
+  }
+}
+
+export interface RosterResponse {
+  roster: RosterPlayer[]
+  teamId: number
+  rosterType: string
+}
+
+// ── Team Info ──────────────────────────────────────────────────────────────────
+
+export interface TeamInfo {
+  id: number
+  name: string
+  abbreviation: string
+  teamName: string
+  locationName: string
+  division?: { id: number; name: string }
+  league?: { id: number; name: string }
+  venue?: { id: number; name: string }
+}
+
+export interface TeamInfoResponse {
+  teams: TeamInfo[]
 }

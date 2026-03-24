@@ -17,3 +17,28 @@ export function getTeamLeague(teamId: number): 'AL' | 'NL' | null {
   if (NL_IDS.has(teamId)) return 'NL'
   return null
 }
+
+export function formatGameTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  })
+}
+
+export function formatGameDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+export function getTeamAbbreviation(team: { abbreviation?: string; name: string }): string {
+  return team.abbreviation ?? team.name.split(' ').pop() ?? ''
+}
+
+export function formatInningDisplay(inningState?: string, ordinal?: string): string {
+  if (!ordinal) return '—'
+  const isTop = inningState === 'Top' || inningState === 'Middle'
+  return `${isTop ? '↑' : '↓'} ${ordinal}`
+}

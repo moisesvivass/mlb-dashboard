@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { cn, getTeamLogoUrl } from '@/lib/utils'
+import { cn, getTeamLogoUrl, getTeamAbbreviation, formatGameTime } from '@/lib/utils'
 import { mlbApi } from '../services/mlbApi'
 import { useBoxscore } from '../hooks/useBoxscore'
 import { usePlayByPlay } from '../hooks/usePlayByPlay'
+import { useLiveGame } from '../hooks/useLiveGame'
+import { BaseballDiamond } from '../components/BaseballDiamond'
+import { LiveFeed } from '../components/LiveFeed'
 import type {
   Game,
   GameTeam,
@@ -26,22 +29,44 @@ const stat = (val: number | string | undefined, fallback: string | number = 0) =
 
 // ── Score header ───────────────────────────────────────────────────────────────
 
+const TeamScoreCard = ({
+  teamData,
+  showScore,
+}: {
+  teamData: GameTeam
+  showScore: boolean
+}) => {
+  const navigate = useNavigate()
+  return (
+    <div className="flex flex-col items-center gap-1.5 flex-1">
+      <img
+        src={getTeamLogoUrl(teamData.team.id)}
+        alt={teamData.team.name}
+        className="w-20 h-20 drop-shadow-md cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={() => navigate(`/team/${teamData.team.id}`)}
+      />
+      <span
+        className="text-sm font-semibold text-zinc-300 text-center leading-tight cursor-pointer hover:text-blue-400 transition-colors"
+        onClick={() => navigate(`/team/${teamData.team.id}`)}
+      >
+        {teamData.team.name}
+      </span>
+      {showScore && (
+        <span className={cn('text-6xl font-bold tabular-nums mt-1', teamData.isWinner ? 'text-white' : 'text-zinc-500')}>
+          {teamData.score ?? 0}
+        </span>
+      )}
+    </div>
+  )
+}
+
 const ScoreHeader = ({ game }: { game: Game }) => {
-  const { away, home } = game.teams
   const state = game.status.abstractGameState
   const showScore = state === 'Live' || state === 'Final'
 
   return (
     <div className="flex items-center justify-between gap-6">
-      <div className="flex flex-col items-center gap-1.5 flex-1">
-        <img src={getTeamLogoUrl(away.team.id)} alt={away.team.name} className="w-20 h-20 drop-shadow-md" />
-        <span className="text-sm font-semibold text-zinc-300 text-center leading-tight">{away.team.name}</span>
-        {showScore && (
-          <span className={cn('text-6xl font-bold tabular-nums mt-1', away.isWinner ? 'text-white' : 'text-zinc-500')}>
-            {away.score ?? 0}
-          </span>
-        )}
-      </div>
+      <TeamScoreCard teamData={game.teams.away} showScore={showScore} />
 
       <div className="text-center flex-shrink-0">
         {showScore ? (
@@ -54,11 +79,7 @@ const ScoreHeader = ({ game }: { game: Game }) => {
         ) : (
           <div>
             <p className="text-xl font-semibold text-zinc-200">
-              {new Date(game.gameDate).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                timeZoneName: 'short',
-              })}
+              {formatGameTime(game.gameDate)}
             </p>
             <p className="text-xs text-zinc-500 mt-1">Scheduled</p>
           </div>
@@ -66,18 +87,40 @@ const ScoreHeader = ({ game }: { game: Game }) => {
         <p className="text-xs text-zinc-600 mt-2">{game.venue.name}</p>
       </div>
 
-      <div className="flex flex-col items-center gap-1.5 flex-1">
-        <img src={getTeamLogoUrl(home.team.id)} alt={home.team.name} className="w-20 h-20 drop-shadow-md" />
-        <span className="text-sm font-semibold text-zinc-300 text-center leading-tight">{home.team.name}</span>
-        {showScore && (
-          <span className={cn('text-6xl font-bold tabular-nums mt-1', home.isWinner ? 'text-white' : 'text-zinc-500')}>
-            {home.score ?? 0}
-          </span>
-        )}
-      </div>
+      <TeamScoreCard teamData={game.teams.home} showScore={showScore} />
     </div>
   )
 }
+
+// ── Team toggle (mobile) ───────────────────────────────────────────────────────
+
+const TeamToggleButtons = ({
+  game,
+  teamView,
+  onTeamChange,
+}: {
+  game: Game
+  teamView: 'away' | 'home'
+  onTeamChange: (side: 'away' | 'home') => void
+}) => (
+  <div className="flex gap-2 mb-4 lg:hidden">
+    {(['away', 'home'] as const).map((side) => (
+      <button
+        key={side}
+        onClick={() => onTeamChange(side)}
+        className={cn(
+          'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border transition-colors',
+          teamView === side
+            ? 'bg-zinc-700 border-zinc-600 text-white'
+            : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'
+        )}
+      >
+        <img src={getTeamLogoUrl(game.teams[side].team.id)} alt="" className="w-4 h-4" />
+        {getTeamAbbreviation(game.teams[side].team)}
+      </button>
+    ))}
+  </div>
+)
 
 // ── Batting tab ────────────────────────────────────────────────────────────────
 
@@ -346,6 +389,7 @@ export const GamePage = () => {
   const [gameLoading, setGameLoading] = useState(!stateGame)
   const [activeTab, setActiveTab] = useState('batting')
   const [pbpEnabled, setPbpEnabled] = useState(false)
+  const [teamView, setTeamView] = useState<'away' | 'home'>('away')
 
   useEffect(() => {
     if (stateGame) return
@@ -357,13 +401,28 @@ export const GamePage = () => {
   }, [gamePk, stateGame])
 
   const game = stateGame ?? fetchedGame
+  const isLiveGame = game?.status.abstractGameState === 'Live'
+  const hasStarted = game?.status.abstractGameState !== 'Preview'
+
   const { boxscore, linescore, loading: boxscoreLoading, error: boxscoreError } = useBoxscore(gamePk)
   const decisions = boxscore?.decisions ?? linescore?.decisions
+
+  const [liveEnabled, setLiveEnabled] = useState(false)
+  const { linescore: liveLinescore, plays, loading: liveLoading } = useLiveGame(gamePk, liveEnabled, isLiveGame ?? false)
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
     if (tab === 'playbyplay') setPbpEnabled(true)
+    if (tab === 'live') setLiveEnabled(true)
   }
+
+  // Default to live tab when game is in progress
+  useEffect(() => {
+    if (isLiveGame) {
+      setActiveTab('live')
+      setLiveEnabled(true)
+    }
+  }, [isLiveGame])
 
   return (
     <div className="min-h-screen bg-zinc-950 text-foreground">
@@ -417,20 +476,68 @@ export const GamePage = () => {
 
             {!boxscoreLoading && !boxscoreError && boxscore && (
               <Tabs value={activeTab} onValueChange={handleTabChange}>
-                <TabsList className="mb-6">
-                  <TabsTrigger value="batting">Batting</TabsTrigger>
-                  <TabsTrigger value="pitching">Pitching</TabsTrigger>
-                  <TabsTrigger value="playbyplay">Play by Play</TabsTrigger>
-                </TabsList>
+                <div className="flex justify-center mb-6">
+                  <TabsList>
+                    {hasStarted && <TabsTrigger value="live">Live</TabsTrigger>}
+                    <TabsTrigger value="batting">Batting</TabsTrigger>
+                    <TabsTrigger value="pitching">Pitching</TabsTrigger>
+                    <TabsTrigger value="playbyplay">Play by Play</TabsTrigger>
+                  </TabsList>
+                </div>
 
-                <TabsContent value="batting" className="space-y-8">
-                  <BattingTeamTable teamData={game.teams.away} boxscoreTeam={boxscore.teams.away} />
-                  <BattingTeamTable teamData={game.teams.home} boxscoreTeam={boxscore.teams.home} />
+                {hasStarted && (
+                  <TabsContent value="live">
+                    {liveLoading && !liveLinescore ? (
+                      <div className="flex flex-col items-center py-16 gap-3 text-zinc-500">
+                        <div className="w-5 h-5 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
+                        <span className="text-sm">Loading live data…</span>
+                      </div>
+                    ) : (
+                      <div className="grid lg:grid-cols-2 gap-8">
+                        <div className="flex justify-center">
+                          <BaseballDiamond
+                            linescore={liveLinescore ?? linescore}
+                            lastPlayDescription={plays[plays.length - 1]?.result.description}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">
+                            Play Feed
+                          </p>
+                          <LiveFeed plays={plays} game={game} />
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+                )}
+
+                <TabsContent value="batting">
+                  <TeamToggleButtons game={game} teamView={teamView} onTeamChange={setTeamView} />
+                  <div className="lg:hidden">
+                    <BattingTeamTable
+                      teamData={game.teams[teamView]}
+                      boxscoreTeam={boxscore.teams[teamView]}
+                    />
+                  </div>
+                  <div className="hidden lg:grid grid-cols-2 gap-6">
+                    <BattingTeamTable teamData={game.teams.away} boxscoreTeam={boxscore.teams.away} />
+                    <BattingTeamTable teamData={game.teams.home} boxscoreTeam={boxscore.teams.home} />
+                  </div>
                 </TabsContent>
 
-                <TabsContent value="pitching" className="space-y-8">
-                  <PitchingTeamTable teamData={game.teams.away} boxscoreTeam={boxscore.teams.away} decisions={decisions} />
-                  <PitchingTeamTable teamData={game.teams.home} boxscoreTeam={boxscore.teams.home} decisions={decisions} />
+                <TabsContent value="pitching">
+                  <TeamToggleButtons game={game} teamView={teamView} onTeamChange={setTeamView} />
+                  <div className="lg:hidden">
+                    <PitchingTeamTable
+                      teamData={game.teams[teamView]}
+                      boxscoreTeam={boxscore.teams[teamView]}
+                      decisions={decisions}
+                    />
+                  </div>
+                  <div className="hidden lg:grid grid-cols-2 gap-6">
+                    <PitchingTeamTable teamData={game.teams.away} boxscoreTeam={boxscore.teams.away} decisions={decisions} />
+                    <PitchingTeamTable teamData={game.teams.home} boxscoreTeam={boxscore.teams.home} decisions={decisions} />
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="playbyplay">

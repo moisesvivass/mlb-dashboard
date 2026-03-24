@@ -4,6 +4,9 @@ import type {
   BoxscoreResponse,
   LinescoreResponse,
   PlayByPlayResponse,
+  TeamStatsResponse,
+  RosterResponse,
+  TeamInfoResponse,
 } from '../types/mlb'
 
 const BASE_URL = 'https://statsapi.mlb.com/api/v1'
@@ -11,7 +14,7 @@ const BASE_URL = 'https://statsapi.mlb.com/api/v1'
 export const mlbApi = {
   getSchedule: async (date: string): Promise<ScheduleResponse> => {
     const response = await fetch(
-      `${BASE_URL}/schedule?sportId=1&date=${date}&hydrate=decisions,probablePitchers`
+      `${BASE_URL}/schedule?sportId=1&date=${date}&hydrate=decisions,probablePitchers,linescore`
     )
     if (!response.ok) {
       throw new Error('Failed to fetch schedule')
@@ -62,6 +65,54 @@ export const mlbApi = {
     const response = await fetch(`${BASE_URL}/game/${gamePk}/playByPlay`)
     if (!response.ok) {
       throw new Error('Failed to fetch play by play')
+    }
+    return response.json()
+  },
+
+  getTeamInfo: async (teamId: number): Promise<TeamInfoResponse> => {
+    const response = await fetch(`${BASE_URL}/teams/${teamId}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch team info')
+    }
+    return response.json()
+  },
+
+  getTeamRoster: async (teamId: number): Promise<RosterResponse> => {
+    const response = await fetch(
+      `${BASE_URL}/teams/${teamId}/roster?rosterType=fullRoster&season=2026&hydrate=person`
+    )
+    if (!response.ok) {
+      throw new Error('Failed to fetch team roster')
+    }
+    return response.json()
+  },
+
+  getTeamBattingStats: async (teamId: number): Promise<TeamStatsResponse> => {
+    const response = await fetch(
+      `${BASE_URL}/stats?stats=season&group=hitting&teamId=${teamId}&season=2026&sportId=1&limit=100`
+    )
+    if (!response.ok) {
+      throw new Error('Failed to fetch team batting stats')
+    }
+    return response.json()
+  },
+
+  getTeamPitchingStats: async (teamId: number): Promise<TeamStatsResponse> => {
+    const response = await fetch(
+      `${BASE_URL}/stats?stats=season&group=pitching&teamId=${teamId}&season=2026&sportId=1&limit=100`
+    )
+    if (!response.ok) {
+      throw new Error('Failed to fetch team pitching stats')
+    }
+    return response.json()
+  },
+
+  getTeamSchedule: async (teamId: number): Promise<ScheduleResponse> => {
+    const response = await fetch(
+      `${BASE_URL}/schedule?teamId=${teamId}&season=2026&sportId=1&hydrate=decisions,probablePitchers`
+    )
+    if (!response.ok) {
+      throw new Error('Failed to fetch team schedule')
     }
     return response.json()
   },

@@ -1,34 +1,44 @@
 import { useState } from 'react'
-import { cn, getTeamLogoUrl } from '@/lib/utils'
+import { useNavigate } from 'react-router-dom'
+import { cn, getTeamLogoUrl, formatGameTime, getTeamAbbreviation } from '@/lib/utils'
 import { GameModal } from './GameModal'
 import type { Game, GameTeam } from '../types/mlb'
 
-const formatGameTime = (gameDate: string) =>
-  new Date(gameDate).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  })
 
-const TeamLine = ({ team, showScore }: { team: GameTeam; showScore: boolean }) => (
+const TeamLine = ({
+  team,
+  showScore,
+  onTeamClick,
+}: {
+  team: GameTeam
+  showScore: boolean
+  onTeamClick: (e: React.MouseEvent) => void
+}) => (
   <div className="flex items-center gap-2 min-w-0">
     <img
       src={getTeamLogoUrl(team.team.id)}
       alt=""
-      className="w-7 h-7 flex-shrink-0"
+      className="w-7 h-7 flex-shrink-0 cursor-pointer hover:opacity-75 transition-opacity"
+      onClick={onTeamClick}
       onError={(e) => {
         e.currentTarget.style.visibility = 'hidden'
       }}
     />
     <span
       className={cn(
-        'text-sm font-bold w-9 flex-shrink-0',
+        'text-sm font-bold w-9 flex-shrink-0 sm:hidden cursor-pointer hover:text-blue-400 transition-colors',
         team.isWinner ? 'text-white' : 'text-zinc-400'
       )}
+      onClick={onTeamClick}
     >
-      {team.team.abbreviation ?? team.team.name.split(' ').pop()}
+      {getTeamAbbreviation(team.team)}
     </span>
-    <span className="text-sm text-zinc-500 truncate flex-1 hidden sm:block">{team.team.name}</span>
+    <span
+      className="text-sm text-zinc-500 truncate flex-1 hidden sm:block cursor-pointer hover:text-blue-400 transition-colors"
+      onClick={onTeamClick}
+    >
+      {team.team.name}
+    </span>
     <span className="text-xs text-zinc-600 flex-shrink-0 w-10 text-right hidden md:block">
       {team.leagueRecord.wins}–{team.leagueRecord.losses}
     </span>
@@ -47,11 +57,17 @@ const TeamLine = ({ team, showScore }: { team: GameTeam; showScore: boolean }) =
 
 export const ScoreRow = ({ game }: { game: Game }) => {
   const [modalOpen, setModalOpen] = useState(false)
+  const navigate = useNavigate()
   const { away, home } = game.teams
   const state = game.status.abstractGameState
   const isLive = state === 'Live'
   const isFinal = state === 'Final'
   const showScore = isLive || isFinal
+
+  const handleTeamClick = (teamId: number) => (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigate(`/team/${teamId}`)
+  }
 
   return (
     <>
@@ -70,8 +86,8 @@ export const ScoreRow = ({ game }: { game: Game }) => {
 
         {/* Teams */}
         <div className="flex-1 min-w-0 space-y-2">
-          <TeamLine team={away} showScore={showScore} />
-          <TeamLine team={home} showScore={showScore} />
+          <TeamLine team={away} showScore={showScore} onTeamClick={handleTeamClick(away.team.id)} />
+          <TeamLine team={home} showScore={showScore} onTeamClick={handleTeamClick(home.team.id)} />
         </div>
 
         {/* Status + pitcher info */}
